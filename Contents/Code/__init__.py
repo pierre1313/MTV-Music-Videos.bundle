@@ -8,6 +8,8 @@ MTV_VIDEO_TOPRATED  = "http://www.mtv.com/music/video/popular.jhtml"
 MTV_VIDEO_YEARBOOK  = "http://www.mtv.com/music/yearbook/"
 MTV_VIDEO_DIRECTORY = "http://www.mtv.com/music/video/browse.jhtml?chars=%s"
 
+USER_AGENT = 'Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10.6; en-US; rv:1.9.2.12) Gecko/20101026 Firefox/3.6.12'
+
 ####################################################################################################
 def Start():
   Plugin.AddPrefixHandler(MTV_PLUGIN_PREFIX, MainMenu, "MTV Music Videos", "icon-default.png", "art-default.jpg")
@@ -15,7 +17,16 @@ def Start():
   MediaContainer.art = R('art-default.jpg')
   MediaContainer.title1 = 'Top Picks'
   DirectoryItem.thumb=R("icon-default.png")
+
+  HTTP.Headers['User-Agent'] = USER_AGENT
   HTTP.CacheTime=3600
+
+def Thumb(url):
+  try:
+    data = HTTP.Request(url, cacheTime=CACHE_1WEEK).content
+    return DataObject(data, 'image/jpeg')
+  except:
+    return Redirect(R("icon-default.png"))
   
 ####################################################################################################
 def MainMenu():
@@ -39,8 +50,11 @@ def VideoPage(sender, pageUrl):
         if title == None or len(title) == 0:
             title = item.xpath("a/img")[-1].get('alt')
         title = title.replace('"','')
-        dir.Append(WebVideoItem(link, title=title, thumb=image))
-    return dir
+        dir.Append(WebVideoItem(link, title=title, thumb=Function(Thumb,url=image)))
+    if len(dir)==0:
+      return MessageContainer("Sorry !","No video available in this category.")
+    else:
+      return dir
     
 ####################################################################################################
 def Yearbook(sender):
@@ -62,7 +76,7 @@ def YearPage(sender, pageUrl):
             title = title.strip('"').replace('- "','- ').replace(' "',' - ')
             thumb = MTV_ROOT + img.get('src')
             link = re.sub('#.*','', url)
-            dir.Append(WebVideoItem(link, title=title, thumb=thumb))
+            dir.Append(WebVideoItem(link, title=title, thumb=Function(Thumb,url=thumb)))
     return dir
 
 ####################################################################################################
@@ -80,4 +94,7 @@ def Artists(sender, ch):
         url = MTV_ROOT + artist.get('href')
         title = artist.text
         dir.Append(Function(DirectoryItem(VideoPage, title), pageUrl = url))
-    return dir
+    if len(dir)==0:
+      return MessageContainer("Error","No artist in this category")
+    else:
+      return dir
